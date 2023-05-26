@@ -1,0 +1,98 @@
+---
+title: "Sam Wong - PSTAT 174 final project submission"
+author: "Sam Wong"
+date: "11/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,warning=FALSE}
+#setup 
+library(TSstudio)
+library(base)
+library(forecast)
+library(MASS)
+library(data.table)
+library(astsa)
+library(alr4)
+library(tseries)
+library(ggplot2)
+```
+
+```{r, echo=FALSE}
+#3.1 basic graph
+#plot but selecting Arabica species not the Robusta bean
+coffee_ts <- Coffee_Prices[,2]
+plot.ts(Coffee_Prices[,2], main = "Time Series of Coffee Prices", ylab = "Coffee Prices")
+
+#3.2 transform. stationary
+#decompose
+decomp <- stl(coffee_ts, s.window = "periodic")
+#difference to remove trends/seasonality
+diff_coffee_ts <-diff(coffee_ts)
+#add lag (annual)
+diff_lag_coffee_ts <- diff(diff_coffee_ts, lag = 1)
+
+#plotting  the differenced one
+plot.ts(diff_coffee_ts, main = "Time Series (Difference) Coffee Price", ylab = "Differences")
+#it looks more stationary
+
+#3.3acf, pacf for normal then diff one
+acf_pacf <- acf2(coffee_ts)
+acf_pacf2 <- acf2(diff_coffee_ts)
+
+#3.4fitting the model
+auto_arima <- auto.arima(coffee_ts, trace = TRUE)
+auto_arima
+
+#testing few other models 
+arima(coffee_ts, order = c(1, 1, 2))
+arima(coffee_ts, order = c(3, 1, 2))
+arima(coffee_ts, order = c(2, 1, 3))
+arima(coffee_ts, order = c(1, 1, 1))
+arima(coffee_ts, order = c(1, 1, 3))
+arima(coffee_ts, order = c(3, 1, 1))
+arima(coffee_ts, order = c(3, 1, 3))
+#arma (2,1,2) ; arma(3,1,2) had lowest AIC
+
+#3.5 forecasting
+#final 2 chosen models
+model_A <- arima(coffee_ts, order = c(2, 1, 2))
+model_B <- arima(coffee_ts, order = c(3, 1, 2))
+#forecast
+fore_decomp <- forecast(decomp)
+fore_modelA <- forecast(arima(coffee_ts, order = c(2, 1, 2)))
+fore_modelB <- forecast(arima(coffee_ts, order = c(3, 1, 2)))
+
+#plot original forecasts
+plot(fore_decomp)
+plot(fore_modelA)
+plot(fore_modelB)
+#residual diagnostics
+tsdiag(model_A)
+tsdiag(model_B)
+
+#we have selected model A:
+best_arima <- model_A
+forecast(best_arima)
+plot(forecast(best_arima))
+
+#for predicting: removing and saving the last few years
+#take off few year obs
+coffee_ts_subt <- ts(coffee_ts[-c(679:690)], start = 1960, frequency = 12)
+coffee_ts_subt
+#save last few year obs
+coffee_ts_removed <- ts(coffee_ts[-c(1:679)], start = 2018, frequency = 12)
+coffee_ts_removed
+
+#trying to forecast the last few years
+auto.arima(coffee_ts_subt, n.ahead = 40, 2, 1, 2,)
+points(coffee_ts_removed, col = "black")
+lines(coffee_ts_removed, col = "black")
+legend("topleft", c("Actual Values", "Predicted Values", "Lower/Upper Bounds"), lwd = c(1, 1.5, 2), lty = 1:3, col = c("black", "red", "blue"), inset=0.02)
+
+```
+
